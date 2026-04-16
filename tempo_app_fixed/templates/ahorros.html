@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% block title %}Ahorros — Tempo{% endblock %}
+{% block page_title %}Ahorros{% endblock %}
+
+{% block content %}
+
+<div class="savings-card hover-lift mb-5">
+  <div style="position:relative;z-index:2;">
+    <div style="font-size:10px;color:rgba(202,169,243,0.4);font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="fi fi-rr-piggy-bank" style="font-size:11px;color:rgba(202,169,243,0.6);"></i>
+      Alcancía Virtual
+    </div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:700;color:#fff;line-height:1;letter-spacing:-1.5px;">
+      ${{ total_ahorros|floatformat:0 }}
+    </div>
+    <div style="color:rgba(202,169,243,0.3);font-size:13px;margin-top:5px;margin-bottom:8px;">ahorros acumulados</div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(121,151,230,0.2);border-radius:10px;padding:10px 15px;margin-bottom:22px;display:inline-flex;align-items:center;gap:12px;backdrop-filter:blur(8px);">
+      <span style="color:rgba(202,169,243,0.4);font-size:11.5px;">Saldo disponible para depositar:</span>
+      <span style="color:#fff;font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:15px;">${{ saldo_disponible|floatformat:0 }}</span>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="openModal('mDeposito')"
+        style="background:rgba(60,221,170,0.15);color:#3CDDAA;border:1px solid rgba(60,221,170,0.25);backdrop-filter:blur(8px);"><i class="fi fi-rr-arrow-up"></i> Depositar</button>
+      <button class="btn btn-sm" onclick="openModal('mRetiro')"
+        style="background:rgba(121,151,230,0.15);color:#7997E6;border:1px solid rgba(121,151,230,0.25);backdrop-filter:blur(8px);"><i class="fi fi-rr-arrow-down"></i> Retirar</button>
+      <button class="btn btn-sm" onclick="openModal('mGastoAhorro')"
+        style="background:rgba(255,107,138,0.15);color:#FF6B8A;border:1px solid rgba(255,107,138,0.25);backdrop-filter:blur(8px);"><i class="fi fi-rr-shopping-bag"></i> Gastar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Historial con scroll y navegación de mes -->
+<div class="card" style="padding:0;overflow:hidden;">
+  <!-- Header fijo del historial -->
+  <div style="padding:18px 22px 14px;border-bottom:1px solid var(--glass-border);
+              background:rgba(13,13,26,0.5);backdrop-filter:blur(12px);
+              position:sticky;top:0;z-index:5;
+              display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div>
+      <div class="section-title">Historial de movimientos</div>
+      <div class="section-sub" id="histSubtitle">{{ mes_nombre }} {{ anio }}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="badge badge-dark" id="totalMovBadge">{{ historial.count }} total</span>
+      <!-- Navegación de mes -->
+      <div class="month-nav">
+        <a href="?mes={{ mes_ant }}&anio={{ anio_ant }}" class="mnav-btn">‹</a>
+        <span class="mnav-label" style="min-width:110px;">{{ mes_nombre }} {{ anio }}</span>
+        <a href="?mes={{ mes_sig }}&anio={{ anio_sig }}" class="mnav-btn">›</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel deslizable de movimientos -->
+  <div class="scroll-panel" style="padding:8px 0;">
+    {% for m in historial %}
+    <div class="row-item" style="padding:12px 22px;">
+      <div class="row-icon" style="
+        background:{% if m.tipo == 'deposito' %}rgba(60,221,170,0.1){% elif m.tipo == 'retiro' %}rgba(245,200,66,0.1){% else %}rgba(255,107,138,0.1){% endif %};
+        border-color:{% if m.tipo == 'deposito' %}rgba(60,221,170,0.2){% elif m.tipo == 'retiro' %}rgba(245,200,66,0.2){% else %}rgba(255,107,138,0.2){% endif %};
+        font-size:15px;color:{% if m.tipo == 'deposito' %}var(--green){% elif m.tipo == 'retiro' %}var(--yellow){% else %}var(--red){% endif %};">
+        {% if m.tipo == 'deposito' %}<i class="fi fi-rr-arrow-up"></i>{% elif m.tipo == 'retiro' %}<i class="fi fi-rr-arrow-down"></i>{% else %}<i class="fi fi-rr-shopping-bag"></i>{% endif %}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">
+          {{ m.get_tipo_display }}{% if m.detalle %} — {{ m.detalle }}{% endif %}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px;">{{ m.fecha|date:"d M Y" }}</div>
+      </div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-right:10px;
+                  color:{% if m.tipo == 'deposito' %}var(--green){% elif m.tipo == 'retiro' %}var(--yellow){% else %}var(--red){% endif %};">
+        {% if m.tipo == 'deposito' %}+{% else %}-{% endif %}${{ m.monto|floatformat:0 }}
+      </div>
+      <form method="post" action="{% url 'eliminar_ahorro' m.pk %}"
+            data-confirm="Se eliminará este movimiento de ${{ m.monto|floatformat:0 }}."
+            data-title="¿Eliminar movimiento?" data-emoji="🏦">
+        {% csrf_token %}<button class="btn btn-danger btn-xs btn-icon">✕</button>
+      </form>
+    </div>
+    {% empty %}
+    <div class="empty" style="padding:50px 20px;">
+      <div class="empty-emoji">🏦</div>
+      <div class="empty-msg">Tu alcancía está vacía.<br>¡Haz tu primer depósito!</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Modal Depositar -->
+<div class="modal-bg" id="mDeposito">
+  <div class="modal-box">
+    <div class="flex-between mb-2">
+      <h3 class="modal-title" style="color:var(--green);"><i class="fi fi-rr-arrow-up"></i> Depositar a la alcancía</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('mDeposito')">✕</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--text3);margin-bottom:16px;line-height:1.5;">
+      El dinero sale de tu saldo disponible y queda guardado en tu alcancía.
+      <br><strong style="color:var(--green);">Disponible: ${{ saldo_disponible|floatformat:0 }}</strong>
+    </p>
+    <form method="post" action="{% url 'agregar_movimiento_ahorro' %}">
+      {% csrf_token %}<input type="hidden" name="tipo" value="deposito">
+      <div class="grid grid-2 gap-3">
+        <div class="form-group"><label class="form-label">Monto *</label><input type="text" name="monto" class="form-control monto-input" placeholder="0" inputmode="numeric" required></div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" name="fecha" class="form-control" value="{{ hoy }}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Nota (opcional)</label><input type="text" name="detalle" class="form-control" placeholder="ej. Ahorro de quincena…"></div>
+      <div class="flex gap-3 mt-4">
+        <button type="button" class="btn btn-secondary w-full" onclick="closeModal('mDeposito')">Cancelar</button>
+        <button type="submit" class="btn btn-mint w-full">Depositar <i class="fi fi-rr-arrow-up"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Retirar -->
+<div class="modal-bg" id="mRetiro">
+  <div class="modal-box">
+    <div class="flex-between mb-2">
+      <h3 class="modal-title"><i class="fi fi-rr-arrow-down"></i> Retirar de la alcancía</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('mRetiro')">✕</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--text3);margin-bottom:16px;line-height:1.5;">
+      El dinero vuelve a tu saldo disponible.
+      <strong style="color:var(--blue);">En alcancía: ${{ total_ahorros|floatformat:0 }}</strong>
+    </p>
+    <form method="post" action="{% url 'agregar_movimiento_ahorro' %}">
+      {% csrf_token %}<input type="hidden" name="tipo" value="retiro">
+      <div class="grid grid-2 gap-3">
+        <div class="form-group"><label class="form-label">Monto *</label><input type="text" name="monto" class="form-control monto-input" placeholder="0" inputmode="numeric" required></div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" name="fecha" class="form-control" value="{{ hoy }}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Motivo (opcional)</label><input type="text" name="detalle" class="form-control" placeholder="ej. Necesité el efectivo…"></div>
+      <div class="flex gap-3 mt-4">
+        <button type="button" class="btn btn-secondary w-full" onclick="closeModal('mRetiro')">Cancelar</button>
+        <button type="submit" class="btn btn-primary w-full">Retirar <i class="fi fi-rr-arrow-down"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Gastar -->
+<div class="modal-bg" id="mGastoAhorro">
+  <div class="modal-box">
+    <div class="flex-between mb-2">
+      <h3 class="modal-title" style="color:var(--red);"><i class="fi fi-rr-shopping-bag"></i> Gastar desde la alcancía</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('mGastoAhorro')">✕</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--text3);margin-bottom:16px;line-height:1.5;">
+      Sale directo de tu alcancía. No afecta tu saldo mensual normal.
+      <strong style="color:var(--red);">En alcancía: ${{ total_ahorros|floatformat:0 }}</strong>
+    </p>
+    <form method="post" action="{% url 'agregar_movimiento_ahorro' %}">
+      {% csrf_token %}<input type="hidden" name="tipo" value="gasto">
+      <div class="grid grid-2 gap-3">
+        <div class="form-group"><label class="form-label">Monto *</label><input type="text" name="monto" class="form-control monto-input" placeholder="0" inputmode="numeric" required></div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" name="fecha" class="form-control" value="{{ hoy }}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">¿En qué lo usaste? *</label><input type="text" name="detalle" class="form-control" placeholder="ej. Laptop nueva…" required></div>
+      <div class="flex gap-3 mt-4">
+        <button type="button" class="btn btn-secondary w-full" onclick="closeModal('mGastoAhorro')">Cancelar</button>
+        <button type="submit" class="btn btn-danger w-full" style="background:var(--red);color:white;">Gastar <i class="fi fi-rr-shopping-bag"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+/* Scroll panel personalizado */
+.scroll-panel::-webkit-scrollbar{width:4px;}
+.scroll-panel::-webkit-scrollbar-track{background:transparent;}
+.scroll-panel::-webkit-scrollbar-thumb{background:rgba(202,169,243,0.2);border-radius:99px;}
+.scroll-panel::-webkit-scrollbar-thumb:hover{background:rgba(202,169,243,0.4);}
+</style>
+{% endblock %}

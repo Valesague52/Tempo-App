@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Gastos — Tempo{% endblock %}
+{% block page_title %}Mis Gastos{% endblock %}
+
+{% block topbar_right %}
+<div class="month-nav">
+  <a href="?mes={{ mes_ant }}&anio={{ anio_ant }}" class="mnav-btn">‹</a>
+  <span class="mnav-label">{{ mes_nombre }} {{ anio }}</span>
+  <a href="?mes={{ mes_sig }}&anio={{ anio_sig }}" class="mnav-btn">›</a>
+</div>
+<button class="btn btn-primary btn-sm" onclick="openModal('mGasto')">+ Agregar</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-3 mb-5">
+  <div class="stat-card c-accent fade-up">
+    <div class="stat-icon c-accent"><i class="fi fi-rr-wallet" style="font-size:16px;color:var(--red);"></i></div>
+    <div class="stat-label">Gastado</div>
+    <div class="stat-value c-red">${{ resumen.total_gastos|floatformat:0 }}</div>
+    <div class="stat-sub">{{ mes_nombre }}</div>
+  </div>
+  <div class="stat-card c-blue fade-up">
+    <div class="stat-icon c-blue"><i class="fi fi-rr-coins" style="font-size:16px;color:var(--blue);"></i></div>
+    <div class="stat-label">Presupuesto</div>
+    <div class="stat-value">${{ resumen.presupuesto|floatformat:0 }}</div>
+    <div class="stat-sub">asignado</div>
+  </div>
+  <div class="stat-card c-mint fade-up">
+    <div class="stat-icon c-mint"><i class="fi fi-rr-bank" style="font-size:16px;color:var(--green);"></i></div>
+    <div class="stat-label">Saldo disponible</div>
+    <div class="stat-value" style="color:{% if resumen.saldo >= 0 %}var(--mint){% else %}var(--red){% endif %};">
+      ${{ resumen.saldo|floatformat:0 }}
+    </div>
+    <div class="stat-sub">acumulado total</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-head mb-3">
+    <div>
+      <div class="section-title">{{ gastos.count }} gasto{{ gastos.count|pluralize:"s" }}</div>
+      <div class="section-sub">{{ mes_nombre }} {{ anio }}</div>
+    </div>
+  </div>
+
+  {% for g in gastos %}
+  <div class="row-item">
+<div class="row-icon" style="background:rgba(255,107,138,0.1);border-color:rgba(255,107,138,0.2);">{{ g.categoria.icono|default:'<i class="fi fi-rr-wallet"></i>'|safe }}</div>    <div style="flex:1;min-width:0;">
+      <div class="truncate" style="font-size:13.5px;font-weight:600;">
+        {% if g.detalle %}{{ g.detalle }}{% elif g.subcategoria %}{{ g.subcategoria.nombre }}{% else %}{{ g.categoria.nombre }}{% endif %}
+      </div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">
+        {{ g.fecha|date:"d M Y" }} · {% if g.subcategoria %}{{ g.subcategoria.nombre }}{% else %}{{ g.categoria.nombre }}{% endif %}
+      </div>
+    </div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--red);font-size:15px;margin-right:10px;">
+      -${{ g.monto|floatformat:0 }}
+    </div>
+    <div class="flex gap-1">
+      <button class="btn btn-secondary btn-xs btn-icon" title="Editar"
+        onclick="editarGasto({{ g.pk }},'{{ g.monto }}','{{ g.categoria.pk }}','{{ g.subcategoria.pk|default:"" }}','{{ g.fecha|date:"Y-m-d" }}','{{ g.detalle|escapejs }}')">✏</button>
+      <form method="post" action="{% url 'eliminar_gasto' g.pk %}?next={{ request.get_full_path|urlencode }}"
+            data-confirm="Se eliminará el gasto de ${{ g.monto|floatformat:0 }} ({{ g.fecha|date:'d M Y' }}). No podrás recuperarlo."
+            data-title="¿Eliminar gasto?"
+            data-emoji='<i class="fi fi-rr-wallet"></i>'>
+        {% csrf_token %}<button type="submit" class="btn btn-danger btn-xs btn-icon" title="Eliminar">✕</button>
+      </form>
+    </div>
+  </div>
+  {% empty %}
+<div class="empty"><div class="empty-emoji"><i class="fi fi-rr-sparkles"></i></div><div class="empty-msg">Sin gastos en {{ mes_nombre }}.<br>¡Agrega el primero!</div></div>  {% endfor %}
+</div>
+
+<!-- Modal Agregar -->
+<div class="modal-bg" id="mGasto">
+  <div class="modal-box">
+    <div class="flex-between mb-4"><h3 class="modal-title"><i class="fi fi-rr-wallet"></i> Nuevo gasto</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('mGasto')">✕</button></div>
+    <form method="post" action="{% url 'agregar_gasto' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="grid grid-2 gap-3">
+        <div class="form-group">
+          <label class="form-label">Monto *</label>
+          <input type="text" name="monto" class="form-control monto-input" placeholder="0" inputmode="numeric" required>
+        </div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" name="fecha" class="form-control" value="{{ hoy }}"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría *</label>
+        <select name="categoria" class="form-control" required onchange="loadSubcategorias(this,'sNuevo')">
+          <option value="">Selecciona...</option>
+          {% for c in categorias %}<option value="{{ c.pk }}">{{ c.icono }} {{ c.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subcategoría</label>
+        <select name="subcategoria" class="form-control" id="sNuevo"><option value="">— Ninguna —</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Detalle</label><input type="text" name="detalle" class="form-control" placeholder="ej. Cena en restaurante…"></div>
+      <div class="flex gap-3 mt-4">
+        <button type="button" class="btn btn-secondary w-full" onclick="closeModal('mGasto')">Cancelar</button>
+        <button type="submit" class="btn btn-primary w-full">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Editar -->
+<div class="modal-bg" id="mEditGasto">
+  <div class="modal-box">
+    <div class="flex-between mb-4"><h3 class="modal-title">✏ Editar gasto</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('mEditGasto')">✕</button></div>
+    <form method="post" id="fEditGasto">
+      {% csrf_token %}
+      <div class="grid grid-2 gap-3">
+        <div class="form-group">
+          <label class="form-label">Monto *</label>
+          <input type="text" name="monto" id="eMonto" class="form-control monto-input" placeholder="0" inputmode="numeric" required>
+        </div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" name="fecha" id="eFecha" class="form-control"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría *</label>
+        <select name="categoria" id="eCat" class="form-control" required onchange="loadSubcategorias(this,'eSub')">
+          <option value="">Selecciona...</option>
+          {% for c in categorias %}<option value="{{ c.pk }}">{{ c.icono }} {{ c.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subcategoría</label>
+        <select name="subcategoria" id="eSub" class="form-control"><option value="">— Ninguna —</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Detalle</label><input type="text" name="detalle" id="eDetalle" class="form-control"></div>
+      <div class="flex gap-3 mt-4">
+        <button type="button" class="btn btn-secondary w-full" onclick="closeModal('mEditGasto')">Cancelar</button>
+        <button type="submit" class="btn btn-primary w-full">Actualizar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editarGasto(pk, monto, catId, subId, fecha, detalle) {
+  document.getElementById('fEditGasto').action = '/gastos/editar/' + pk + '/';
+  // Formatear el monto para mostrarlo
+  const montoInput = document.getElementById('eMonto');
+  montoInput.dataset.rawVal = monto;
+  montoInput.value = Math.round(parseFloat(monto)).toLocaleString('es-CO');
+  // Agregar hidden con el valor real
+  let h = document.getElementById('eMonto_hidden');
+  if (!h) {
+    h = document.createElement('input'); h.type='hidden'; h.id='eMonto_hidden';
+    montoInput.parentNode.appendChild(h);
+  }
+  h.name = 'monto'; montoInput.name = '';
+  h.value = monto;
+  montoInput.oninput = () => {
+    const raw = montoInput.value.replace(/[^\d]/g,'');
+    h.value = raw;
+    if (raw) montoInput.value = parseInt(raw).toLocaleString('es-CO');
+  };
+
+  document.getElementById('eFecha').value = fecha;
+  document.getElementById('eDetalle').value = detalle;
+  const catSel = document.getElementById('eCat');
+  catSel.value = catId;
+  loadSubcategorias(catSel, 'eSub', subId);
+  openModal('mEditGasto');
+}
+</script>
+{% endblock %}

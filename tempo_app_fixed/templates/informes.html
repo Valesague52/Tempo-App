@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Informes — Tempo*{% endblock %}
+{% block page_title %}Informes{% endblock %}
+
+{% block topbar_right %}
+<div class="month-nav">
+  <a href="?anio={{ anio_ant }}" class="mnav-btn">‹</a>
+  <span class="mnav-label" style="min-width:60px;">{{ anio }}</span>
+  <a href="?anio={{ anio_sig }}" class="mnav-btn">›</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Totals anuales -->
+<div class="grid grid-3 mb-5">
+  <div class="stat-card c-mint fade-up">
+    <div class="stat-icon c-mint"><i class="fi fi-rr-sack-dollar" style="font-size:16px;color:var(--green);"></i></div>
+    <div class="stat-label">Ingresos {{ anio }}</div>
+    <div class="stat-value c-green" id="totalI">$—</div>
+    <div class="stat-sub">en el año</div>
+  </div>
+  <div class="stat-card c-accent fade-up">
+    <div class="stat-icon c-accent"><i class="fi fi-rr-wallet" style="font-size:16px;color:var(--red);"></i></div>
+    <div class="stat-label">Gastos {{ anio }}</div>
+    <div class="stat-value c-red" id="totalG">$—</div>
+    <div class="stat-sub">en el año</div>
+  </div>
+  <div class="stat-card c-blue fade-up">
+    <div class="stat-icon c-blue"><i class="fi fi-rr-bank" style="font-size:16px;color:var(--blue);"></i></div>
+    <div class="stat-label">Balance {{ anio }}</div>
+    <div class="stat-value" id="totalB">$—</div>
+    <div class="stat-sub">diferencia</div>
+  </div>
+</div>
+
+<!-- Gráfica barras -->
+<div class="card mb-4">
+  <div class="section-head mb-4">
+    <div>
+      <div class="section-title">Ingresos vs Gastos — {{ anio }}</div>
+      <div class="section-sub">Evolución mensual</div>
+    </div>
+    <div class="flex gap-2">
+      <span class="badge badge-green"><i class="fi fi-rr-sack-dollar"></i> Ingresos</span>
+      <span class="badge badge-red"><i class="fi fi-rr-wallet"></i> Gastos</span>
+    </div>
+  </div>
+  <canvas id="barChart" height="80"></canvas>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+  <div class="section-head mb-3">
+    <div class="section-title">Detalle mensual {{ anio }}</div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th style="text-align:right;color:var(--mint);">Ingresos</th>
+          <th style="text-align:right;color:var(--red);">Gastos</th>
+          <th style="text-align:right;">Balance</th>
+          <th style="text-align:center;">Proporción</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+
+fetch('/api/informes-data/?anio={{ anio }}')
+  .then(r => r.json())
+  .then(d => {
+    const tI = d.ingresos.reduce((a,b)=>a+b,0);
+    const tG = d.gastos.reduce((a,b)=>a+b,0);
+    const bal = tI - tG;
+    document.getElementById('totalI').textContent = fmt(tI);
+    document.getElementById('totalG').textContent = fmt(tG);
+    const bEl = document.getElementById('totalB');
+    bEl.textContent = fmt(bal);
+    bEl.style.color = bal >= 0 ? 'var(--mint)' : 'var(--red)';
+
+    // Gráfica
+    const ctx = document.getElementById('barChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: d.labels,
+        datasets: [
+          { label:'Ingresos', data: d.ingresos, backgroundColor:'rgba(0,200,150,0.15)', borderColor:'#00C896', borderWidth:2, borderRadius:6 },
+          { label:'Gastos',   data: d.gastos,   backgroundColor:'rgba(255,92,92,0.12)', borderColor:'#FF5C5C', borderWidth:2, borderRadius:6 }
+        ]
+      },
+      options: {
+        responsive:true,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'rgba(20,20,45,0.95)',borderColor:'rgba(202,169,243,0.25)',borderWidth:1, cornerRadius:8, padding:10,
+            callbacks:{ label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)}` }
+          }
+        },
+        scales:{
+          x:{ grid:{display:false}, ticks:{font:{family:'Plus Jakarta Sans',size:11},color:'#6360A0'} },
+          y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{font:{family:'Plus Jakarta Sans',size:11}, callback:v => '$'+Math.round(v/1000)+'k',color:'#6360A0'} }
+        }
+      }
+    });
+
+    // Tabla
+    const max = Math.max(...d.ingresos, ...d.gastos, 1);
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    d.labels.forEach((mes,i) => {
+      const ing = d.ingresos[i], gas = d.gastos[i], bal = ing - gas;
+      const tieneData = ing > 0 || gas > 0;
+      const tr = document.createElement('tr');
+      if (!tieneData) tr.style.opacity = '0.35';
+      const pI = Math.round(ing/max*100), pG = Math.round(gas/max*100);
+      tr.innerHTML = `
+        <td style="font-weight:600;">${MESES[i]}</td>
+        <td style="text-align:right;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--mint);">${tieneData?fmt(ing):'—'}</td>
+        <td style="text-align:right;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--red);">${tieneData?fmt(gas):'—'}</td>
+        <td style="text-align:right;font-family:'Space Grotesk',sans-serif;font-weight:700;color:${bal>=0?'var(--mint)':'var(--red)'};">${tieneData?fmt(bal):'—'}</td>
+        <td style="padding:12px 16px;">
+          ${tieneData?`<div style="display:flex;flex-direction:column;gap:3px;min-width:80px;">
+            <div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="width:${pI}%;height:100%;background:var(--mint);border-radius:99px;"></div></div>
+            <div style="height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;"><div style="width:${pG}%;height:100%;background:var(--red);border-radius:99px;"></div></div>
+          </div>` : '<span style="color:var(--text3);font-size:12px;">Sin datos</span>'}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  });
+</script>
+{% endblock %}
