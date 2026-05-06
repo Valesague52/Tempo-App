@@ -607,7 +607,12 @@ def agregar_categoria_ingreso(request):
     else:
         messages.error(request, 'El nombre es obligatorio.')
     return redirect('categorias')
-
+@login_required
+def eliminar_categoria_ingreso(request, pk):
+    cat = get_object_or_404(CategoriaIngreso, pk=pk, usuario=request.user)
+    cat.delete()
+    messages.success(request, 'Fuente de ingreso eliminada.')
+    return redirect('categorias')
 
 @login_required
 @require_POST

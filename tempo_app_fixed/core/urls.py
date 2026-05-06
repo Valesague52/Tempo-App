@@ -39,4 +39,6 @@ urlpatterns = [
     path('api/dashboard-data/', views.api_dashboard_data, name='api_dashboard_data'),
     path('api/informes-data/', views.api_informes_data, name='api_informes_data'),
     path('api/presupuesto-data/', views.api_presupuesto_data, name='api_presupuesto_data'),
+    path('categorias/eliminar-ingreso/<int:pk>/', views.eliminar_categoria_ingreso, name='eliminar_categoria_ingreso'),
 ]
+
