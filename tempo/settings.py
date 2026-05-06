@@ -3,20 +3,10 @@ import os
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.environ.get('SECRET_KEY', 'clave-local-desarrollo')
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
-DATABASES = {
-    'default': dj_database_url.parse(os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'))
-}
-
-# Archivos estáticos con whitenoise
-MIDDLEWARE = [
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    # ... el resto de tus middleware que ya tienes
-]
+SECRET_KEY = os.environ.get('SECRET_KEY', 'clave-local-desarrollo-cambiar-en-produccion')
+DEBUG      = os.environ.get('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,tempo-app.onrender.com').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,7 +20,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,25 +49,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'tempo.wsgi.application'
 
+# FIX: fallback a SQLite para desarrollo local cuando DATABASE_URL no está definida
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600
+        default=os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "db.sqlite3"}'),
+        conn_max_age=600,
     )
 }
-LANGUAGE_CODE = 'es-es'
-TIME_ZONE = 'America/Bogota'
-USE_I18N = True
-USE_TZ = True
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+LANGUAGE_CODE = 'es-es'
+TIME_ZONE     = 'America/Bogota'
+USE_I18N      = True
+USE_TZ        = True
+
+STATIC_URL       = '/static/'
+STATIC_ROOT      = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/login/'
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost').split(',')
+LOGIN_URL            = '/login/'
+LOGIN_REDIRECT_URL   = '/'
+LOGOUT_REDIRECT_URL  = '/login/'
+
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost,http://127.0.0.1,https://tempo-app.onrender.com'
+).split(',')
