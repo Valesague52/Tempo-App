@@ -43,8 +43,8 @@
       <button class="btn btn-secondary btn-xs btn-icon" onclick="editarIngreso({{ i.pk }},'{{ i.monto }}','{{ i.categoria.pk }}','{{ i.fecha|date:"Y-m-d" }}','{{ i.detalle|escapejs }}')">✏</button>
       <form method="post" action="{% url 'eliminar_ingreso' i.pk %}"
             data-confirm="Se eliminará el ingreso de ${{ i.monto|floatformat:0 }} ({{ i.fecha|date:'d M Y' }})."
-            data-title="¿Eliminar ingreso?" data-emoji='<i class="fi fi-rr-sack-dollar"></i>'
-        {% csrf_token %}<button type="submit" class="btn btn-danger btn-xs btn-icon">✕</button>
+            data-title="¿Eliminar ingreso?" data-emoji='<i class="fi fi-rr-sack-dollar"></i>'>
+      {% csrf_token %}<button type="submit" class="btn btn-danger btn-xs btn-icon">✕</button>
       </form>
     </div>
   </div>
